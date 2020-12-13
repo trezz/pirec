@@ -19,29 +19,27 @@ type Recorder struct {
 	cancel      func()
 }
 
-func NewRecorder(root string, maxFileTime int, devID string) *Recorder {
+func NewRecorder(root string, maxFileTime time.Duration, devID string) *Recorder {
 	return &Recorder{
 		RootPath:    root,
-		MaxFileTime: time.Duration(maxFileTime),
+		MaxFileTime: maxFileTime,
 		devID:       devID,
 		cancel:      nil,
 	}
 }
 
-func NewDefaultRecorder(devID string) (*Recorder, error) {
-	rootPath := "/opt/pirecord"
-
-	_, err := os.Stat(rootPath)
+func CreateRecorder(root string, maxFileTime time.Duration, devID string) (*Recorder, error) {
+	_, err := os.Stat(root)
 	if os.IsNotExist(err) {
-		if err = os.MkdirAll(rootPath, os.ModePerm); err != nil {
-			return nil, err
+		if err = os.MkdirAll(root, os.ModePerm); err != nil {
+			return nil, fmt.Errorf("cannot create %v, %w", root, err)
 		}
 	} else if err != nil {
 		return nil, err
 	}
 
 	// Record a new file in /opt/pirecord every minute.
-	return NewRecorder(rootPath, 60, devID), nil
+	return NewRecorder(root, maxFileTime, devID), nil
 }
 
 func (r Recorder) compress() {
@@ -86,7 +84,7 @@ func (r *Recorder) Start(parentCtx context.Context) {
 	go func() {
 		for {
 			r.compress()
-			time.Sleep(r.MaxFileTime * time.Second)
+			time.Sleep(r.MaxFileTime)
 		}
 	}()
 
@@ -101,7 +99,7 @@ func (r *Recorder) Start(parentCtx context.Context) {
 	}
 }
 
-func (r *Recorder) Stop() {
+func (r Recorder) Stop() {
 	if r.cancel != nil {
 		r.cancel()
 	}

@@ -11,7 +11,12 @@ import (
 )
 
 func main() {
-	mon, err := pirec.NewDefaultMonitor()
+	if len(os.Args) != 2 {
+		fmt.Printf("usage: %v FILE\n", os.Args[0])
+		return
+	}
+
+	mon, err := pirec.CreateMonitor(os.Args[1])
 	if err != nil {
 		panic(err)
 	}

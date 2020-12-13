@@ -3,10 +3,13 @@ package pirec
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Monitor struct {
@@ -14,25 +17,47 @@ type Monitor struct {
 	DevID    string
 	ctx      context.Context
 	recorder *Recorder
+	uploader *Uploader
 }
 
-func NewMonitor(devID string, command []string, rec *Recorder) *Monitor {
+type Config struct {
+	Dev              string `json:"dev"`
+	Root             string `json:"root"`
+	DropboxAuthToken string `json:"dropboxAuthToken"`
+	RecordMaxTimeSec int    `json:"recordMaxTimeSec"`
+	UploadPeriodSec  int    `json:"uploadPeriodSec"`
+}
+
+func NewMonitor(devID string, command []string, rec *Recorder, upl *Uploader) *Monitor {
 	return &Monitor{
 		Command:  command,
 		DevID:    devID,
 		ctx:      nil,
 		recorder: rec,
+		uploader: upl,
 	}
 }
 
-func NewDefaultMonitor() (*Monitor, error) {
-	devID := "74:45:CE:59:CF:A0"
-	rec, err := NewDefaultRecorder(devID)
+func CreateMonitor(confFile string) (*Monitor, error) {
+	data, err := ioutil.ReadFile(confFile)
 	if err != nil {
 		return nil, err
 	}
 
-	mon := NewMonitor(devID, []string{"dbus-monitor", "--system"}, rec)
+	conf := Config{}
+	err = json.Unmarshal(data, &conf)
+	if err != nil {
+		return nil, err
+	}
+
+	rec, err := CreateRecorder(conf.Root, time.Duration(conf.RecordMaxTimeSec)*time.Second, conf.Dev)
+	if err != nil {
+		return nil, err
+	}
+
+	upl := NewUploader(conf.Root, time.Duration(conf.UploadPeriodSec)*time.Second, conf.DropboxAuthToken)
+
+	mon := NewMonitor(conf.Dev, []string{"dbus-monitor", "--system"}, rec, upl)
 
 	return mon, nil
 }
@@ -105,11 +130,13 @@ func (m *Monitor) Start(ctx context.Context) error {
 
 	fmt.Println("Monitor: started")
 
+	go m.uploader.Start(m.ctx)
 	go m.scan(scanner)
 
 	select {
 	case <-m.ctx.Done():
 		fmt.Println("Monitor: terminating")
+		m.uploader.Stop()
 		break
 	}
 
