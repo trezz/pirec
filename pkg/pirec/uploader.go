@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,17 +15,19 @@ import (
 )
 
 type Uploader struct {
-	RootPath  string
-	Period    time.Duration
-	AuthToken string
-	cancel    func()
+	RootPath         string
+	Period           time.Duration
+	DropBoxAuthToken string
+	AzureAuthToken   string
+	cancel           func()
 }
 
-func NewUploader(from string, period time.Duration, token string) *Uploader {
+func NewUploader(from string, period time.Duration, dropBoxToken, azureToken string) *Uploader {
 	return &Uploader{
-		RootPath:  from,
-		Period:    period,
-		AuthToken: token,
+		RootPath:         from,
+		Period:           period,
+		DropBoxAuthToken: dropBoxToken,
+		AzureAuthToken:   azureToken,
 	}
 }
 
@@ -60,7 +64,7 @@ func (u Uploader) upload(file string) error {
 		return err
 	}
 
-	req.Header.Add("Authorization", "Bearer "+u.AuthToken)
+	req.Header.Add("Authorization", "Bearer "+u.DropBoxAuthToken)
 	req.Header.Add("Dropbox-API-Arg", string(data))
 	req.Header.Add("Content-Type", "application/octet-stream")
 
@@ -95,6 +99,46 @@ func (u Uploader) uploadAndClean() error {
 	sort.Strings(fileList)
 	for _, f := range fileList {
 		if err = u.upload(f); err != nil {
+			return err
+		}
+		err = exec.Command("gunzip", f).Run()
+		if err != nil {
+			return fmt.Errorf("gunzip: %v %w", f, err)
+		}
+
+		f = strings.TrimSuffix(f, ".gz")
+
+		if !strings.HasSuffix(f, ".raw.wav") {
+			continue
+		}
+		cleanedFile := strings.TrimSuffix(f, ".raw.wav") + ".trim.wav"
+		err = TrimSilence(f, cleanedFile)
+		if err != nil {
+			return fmt.Errorf("trim silence: %w", err)
+		} else {
+			fmt.Println("Cleaned", cleanedFile)
+		}
+
+		text, err := SpeechToText(cleanedFile, "francecentral", u.AzureAuthToken, "fr-FR")
+		if err != nil {
+			return fmt.Errorf("conversion: %w", err)
+		} else {
+			fmt.Println("Converted text:", text)
+		}
+
+		textFile := cleanedFile + ".txt"
+		err = ioutil.WriteFile(textFile, []byte(text), 0644)
+		if err != nil {
+			return err
+		}
+
+		if err = u.upload(textFile); err != nil {
+			return err
+		}
+		if err = os.Remove(textFile); err != nil {
+			return err
+		}
+		if err = os.Remove(cleanedFile); err != nil {
 			return err
 		}
 		if err = os.Remove(f); err != nil {

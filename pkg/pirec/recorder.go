@@ -79,7 +79,7 @@ func (r *Recorder) Start(parentCtx context.Context) {
 		"-t", "wav",
 		"-f", "cd",
 		"--max-file-time", strconv.Itoa(int(r.MaxFileTime.Seconds())),
-		"--use-strftime", r.RootPath+"/%Y/%m/%d/pirecord-%H-%M-%v.wav")
+		"--use-strftime", r.RootPath+"/%Y/%m/%d/pirecord-%H-%M-%v.raw.wav")
 
 	go func() {
 		for {

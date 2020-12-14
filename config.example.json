@@ -2,6 +2,7 @@
 	"dev": "AB:CD:EF:GH:IJ:KL",
 	"root": "/opt/pirecord",
 	"dropboxAuthToken": "token",
-	"recordMaxTimeSec": 120,
-	"uploadPeriodSec": 300
+	"azureAuthToken": "token",
+	"recordMaxTimeSec": 30,
+	"uploadPeriodSec": 60
 }

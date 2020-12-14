@@ -24,6 +24,7 @@ type Config struct {
 	Dev              string `json:"dev"`
 	Root             string `json:"root"`
 	DropboxAuthToken string `json:"dropboxAuthToken"`
+	AzureAuthToken   string `json:"azureAuthToken"`
 	RecordMaxTimeSec int    `json:"recordMaxTimeSec"`
 	UploadPeriodSec  int    `json:"uploadPeriodSec"`
 }
@@ -55,7 +56,7 @@ func CreateMonitor(confFile string) (*Monitor, error) {
 		return nil, err
 	}
 
-	upl := NewUploader(conf.Root, time.Duration(conf.UploadPeriodSec)*time.Second, conf.DropboxAuthToken)
+	upl := NewUploader(conf.Root, time.Duration(conf.UploadPeriodSec)*time.Second, conf.DropboxAuthToken, conf.AzureAuthToken)
 
 	mon := NewMonitor(conf.Dev, []string{"dbus-monitor", "--system"}, rec, upl)
 
