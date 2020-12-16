@@ -97,6 +97,11 @@ func (u Uploader) uploadAndClean() error {
 	}
 
 	sort.Strings(fileList)
+
+	if len(fileList) <= 1 {
+		return nil // Need to work on already compressed data.
+	}
+
 	for _, f := range fileList {
 		if err = u.upload(f); err != nil {
 			return err

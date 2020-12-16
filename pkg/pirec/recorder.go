@@ -56,7 +56,7 @@ func (r Recorder) compress() {
 	}
 
 	sort.Strings(fileList)
-	for i := 0; i < len(fileList)-1; i++ {
+	for i := 0; i < len(fileList)-2; i++ {
 		f := fileList[i]
 		cmd := exec.Command("gzip", f)
 		err := cmd.Run()
